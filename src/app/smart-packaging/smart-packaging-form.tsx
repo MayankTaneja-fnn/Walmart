@@ -1,13 +1,13 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useRef, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { getSmartPackagingSuggestions } from './actions';
-import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, Users, CheckCircle, AlertCircle } from 'lucide-react';
+import { Terminal, Users, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 
@@ -23,7 +23,7 @@ function SubmitButton() {
 }
 
 export function SmartPackagingForm() {
-  const [state, formAction] = useFormState(getSmartPackagingSuggestions, initialState);
+  const [state, formAction] = useActionState(getSmartPackagingSuggestions, initialState);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
