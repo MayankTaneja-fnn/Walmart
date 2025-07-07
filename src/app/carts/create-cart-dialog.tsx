@@ -80,6 +80,7 @@ export function CreateCartDialog({ open, onOpenChange }: { open: boolean, onOpen
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <form action={formAction}>
+          <input type="hidden" name="userId" value={user?.uid || ''} />
           <DialogHeader>
             <DialogTitle>Create a New Group Cart</DialogTitle>
             <DialogDescription>

@@ -112,24 +112,25 @@ function generateInviteCode(length = 6) {
 const CreateCartSchema = z.object({
   name: z.string().min(3).max(50),
   address: z.string().min(10).max(100),
-  type: z.enum(['family', 'community'])
+  type: z.enum(['family', 'community']),
+  userId: z.string().min(1, { message: 'You must be logged in to create a cart.' })
 });
 
 export async function createGroupCart(prev: { error?: string; success?: boolean }, formData: FormData) {
-  const user = auth.currentUser;
-  if (!user) return { error: 'You must be logged in to create a cart.' };
-
   const parsed = CreateCartSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return { error: parsed.error.errors[0].message };
+  if (!parsed.success) {
+    const firstError = parsed.error.errors[0].message;
+    return { error: firstError };
+  }
 
-  const { name, address, type } = parsed.data;
+  const { name, address, type, userId } = parsed.data;
   try {
     const newCart: Omit<GroupCart, 'id'> = {
       name,
       address,
       type,
-      ownerId: user.uid,
-      members: [user.uid],
+      ownerId: userId,
+      members: [userId],
       inviteCode: generateInviteCode(),
       createdAt: serverTimestamp(),
       items: []
@@ -144,16 +145,19 @@ export async function createGroupCart(prev: { error?: string; success?: boolean 
   }
 }
 
-const JoinCartSchema = z.object({ inviteCode: z.string().length(6) });
+const JoinCartSchema = z.object({ 
+  inviteCode: z.string().length(6),
+  userId: z.string().min(1, { message: 'You must be logged in to join a cart.' })
+});
 
 export async function joinGroupCart(prev: { error?: string; success?: boolean }, formData: FormData) {
-  const user = auth.currentUser;
-  if (!user) return { error: 'You must be logged in to join a cart.' };
-
   const parsed = JoinCartSchema.safeParse(Object.fromEntries(formData.entries()));
-  if (!parsed.success) return { error: parsed.error.errors[0].message };
+  if (!parsed.success) {
+    const firstError = parsed.error.errors[0].message;
+    return { error: firstError };
+  }
 
-  const { inviteCode } = parsed.data;
+  const { inviteCode, userId } = parsed.data;
 
   try {
     const q = query(collection(db, 'groupCarts'), where('inviteCode', '==', inviteCode.toUpperCase()));
@@ -162,9 +166,9 @@ export async function joinGroupCart(prev: { error?: string; success?: boolean },
 
     const cartDoc = snapshot.docs[0];
     const cartData = cartDoc.data() as GroupCart;
-    if (cartData.members.includes(user.uid)) return { error: 'You are already a member of this cart.' };
+    if (cartData.members.includes(userId)) return { error: 'You are already a member of this cart.' };
 
-    await updateDoc(cartDoc.ref, { members: arrayUnion(user.uid) });
+    await updateDoc(cartDoc.ref, { members: arrayUnion(userId) });
     revalidatePath('/carts');
     revalidatePath('/profile');
     return { success: true };

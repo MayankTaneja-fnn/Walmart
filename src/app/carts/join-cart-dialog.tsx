@@ -45,7 +45,7 @@ export function JoinCartDialog({ open, onOpenChange }: { open: boolean, onOpenCh
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) {
+    if (!user && open) {
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
@@ -54,7 +54,7 @@ export function JoinCartDialog({ open, onOpenChange }: { open: boolean, onOpenCh
       onOpenChange(false);
       router.push('/login');
     }
-  }, [user, toast, onOpenChange, router]);
+  }, [user, open, toast, onOpenChange, router]);
 
   useEffect(() => {
     if (state?.error) {
@@ -77,6 +77,7 @@ export function JoinCartDialog({ open, onOpenChange }: { open: boolean, onOpenCh
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <form action={formAction}>
+          <input type="hidden" name="userId" value={user?.uid || ''} />
           <DialogHeader>
             <DialogTitle>Join an Existing Cart</DialogTitle>
             <DialogDescription>
