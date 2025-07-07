@@ -8,9 +8,8 @@ import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
-import { logOut } from '@/app/auth/actions';
-import { WalmartLogo } from '@/components/icons/walmart-logo';
 import { clientLogOut } from '@/lib/auth-client';
+import { WalmartLogo } from '@/components/icons/walmart-logo';
 
 const navLinks = [
   { href: '/product', label: 'All Products' },
@@ -27,7 +26,7 @@ export default function Header() {
   const handleLogout = async () => {
     await clientLogOut();
     router.push('/');
-    router.refresh(); // Force a refresh to update server-side state
+    router.refresh(); 
   };
 
   return (
@@ -71,23 +70,37 @@ export default function Header() {
                     {link.label}
                   </Link>
                 ))}
-                <Link
-                  href={'/profile'}
-                  className={cn(
-                    'transition-colors hover:text-primary',
-                    pathname === '/profile' ? 'text-primary' : 'text-muted-foreground'
-                  )}
-                >
-                  Account
-                </Link>
-                {user && (
-                  <Button
-                    onClick={handleLogout}
-                    variant="ghost"
-                    className="justify-start p-0 text-lg text-muted-foreground hover:text-primary"
+                
+                {loading ? <span className="text-muted-foreground">Loading...</span> :
+                 user ? (
+                  <>
+                    <Link
+                      href={'/profile'}
+                      className={cn(
+                        'transition-colors hover:text-primary',
+                        pathname === '/profile' ? 'text-primary' : 'text-muted-foreground'
+                      )}
+                    >
+                      Account
+                    </Link>
+                    <Button
+                      onClick={handleLogout}
+                      variant="ghost"
+                      className="justify-start p-0 text-lg text-muted-foreground hover:text-primary"
+                    >
+                      Log Out
+                    </Button>
+                  </>
+                ) : (
+                  <Link
+                    href={'/login'}
+                    className={cn(
+                      'transition-colors hover:text-primary',
+                      pathname === '/login' ? 'text-primary' : 'text-muted-foreground'
+                    )}
                   >
-                    Log Out
-                  </Button>
+                    Log In
+                  </Link>
                 )}
               </nav>
             </SheetContent>

@@ -15,7 +15,6 @@ import {
 import type { GroupCart, GroupCartItem } from "@/lib/types";
 import { CreateCartDialog } from "./create-cart-dialog";
 import { JoinCartDialog } from "./join-cart-dialog";
-import { Timestamp } from "firebase/firestore";
 import { useToast } from '@/hooks/use-toast';
 
 export default function CartsPage() {
@@ -149,7 +148,7 @@ export default function CartsPage() {
                       Items: {cart.items.reduce((acc: number, i: GroupCartItem) => acc + i.quantity, 0)}
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
-                      Created At: {(cart.createdAt as Timestamp).toDate().toLocaleDateString()}
+                      Created At: {new Date(cart.createdAt).toLocaleDateString()}
                     </p>
 
                     {user && cart.ownerId === user.uid ? (

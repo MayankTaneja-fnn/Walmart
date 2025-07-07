@@ -18,14 +18,14 @@ export interface Cart {
 }
 
 export interface GroupCart {
-    id: string;
+    id:string;
     name: string;
     address: string;
     type: 'family' | 'community';
     ownerId: string;
     members: string[];
     inviteCode: string;
-    createdAt: FieldValue | Timestamp;
+    createdAt: any; // Can be FieldValue, Timestamp, or string after serialization
     items: CartItem[];
 }
 

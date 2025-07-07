@@ -14,7 +14,8 @@ import {
   where,
   getDocs,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  type Timestamp
 } from 'firebase/firestore';
 import type { Cart, CartItem, Product, GroupCart } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
@@ -125,7 +126,7 @@ export async function createGroupCart(prev: { error?: string; success?: boolean 
 
   const { name, address, type, userId } = parsed.data;
   try {
-    const newCart: Omit<GroupCart, 'id'> = {
+    const newCart: Omit<GroupCart, 'id' | 'createdAt'> & {createdAt: any} = {
       name,
       address,
       type,
@@ -227,7 +228,15 @@ export async function getGroupCartsForUser(userId: string): Promise<GroupCart[]>
   try {
     const q = query(collection(db, 'groupCarts'), where('members', 'array-contains', userId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupCart));
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      const createdAt = data.createdAt as Timestamp;
+      return { 
+        ...data,
+        id: doc.id, 
+        createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString()
+      } as GroupCart;
+    });
   } catch (e) {
     console.error("Error fetching group carts:", e);
     return [];
