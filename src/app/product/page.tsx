@@ -10,10 +10,51 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
-import { ChevronDown, Leaf, Users, ShoppingCart, QrCode, Truck, Recycle, MapPin } from 'lucide-react';
+import { ChevronDown, Leaf, Users, ShoppingCart, QrCode, Truck, Recycle, MapPin, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/context/auth-context';
+import { addToCart } from '@/app/cart/actions';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function ProductPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddToCart = async () => {
+    if (!user) {
+        toast({
+            variant: "destructive",
+            title: "Not logged in",
+            description: "Please log in to add items to your cart.",
+        });
+        router.push('/login');
+        return;
+    }
+
+    setIsAdding(true);
+    // In a real app, you'd get the product ID from the product data.
+    const result = await addToCart('prod_1', user.uid);
+    setIsAdding(false);
+
+    if (result.success) {
+        toast({
+            title: "Success!",
+            description: result.message,
+        });
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: result.message,
+        });
+    }
+  };
+
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="grid md:grid-cols-2 gap-12 items-start">
@@ -41,27 +82,28 @@ export default function ProductPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="lg" className="w-full sm:w-auto">
-                  Add to Cart <ChevronDown className="ml-2 h-4 w-4" />
+                <Button size="lg" className="w-full sm:w-auto" disabled={isAdding}>
+                  {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
+                  {isAdding ? 'Adding...' : 'Add to Cart'} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
                 <DropdownMenuLabel>Choose a Cart</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleAddToCart} disabled={isAdding}>
                   <ShoppingCart className="mr-2 h-4 w-4" />
                   <span>Personal Cart</span>
                   <span className="ml-auto text-sm">$3.99</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <Users className="mr-2 h-4 w-4" />
                   <span>Family Cart</span>
-                  <span className="ml-auto text-sm text-primary font-medium">$3.79 (5% off)</span>
+                  <span className="ml-auto text-sm text-primary font-medium">(Coming soon)</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem disabled>
                   <Leaf className="mr-2 h-4 w-4" />
                   <span>Community Cart</span>
-                  <span className="ml-auto text-sm text-primary font-bold">$3.59 (10% off)</span>
+                   <span className="ml-auto text-sm text-primary font-bold">(Coming soon)</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
