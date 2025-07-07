@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export interface Product {
     id: string;
     name: string;
@@ -12,5 +14,17 @@ export interface CartItem extends Product {
 
 export interface Cart {
     userId: string;
+    items: CartItem[];
+}
+
+export interface GroupCart {
+    id: string;
+    name: string;
+    address: string;
+    type: 'family' | 'community';
+    ownerId: string;
+    members: string[];
+    inviteCode: string;
+    createdAt: Timestamp;
     items: CartItem[];
 }

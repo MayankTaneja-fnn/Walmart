@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/auth-context';
 import { logOut } from '@/app/auth/actions';
 import { WalmartLogo } from '@/components/icons/walmart-logo';
+import { clientLogOut } from '@/lib/auth-client';
 
 const navLinks = [
   { href: '/product', label: 'All Products' },
@@ -24,8 +25,9 @@ export default function Header() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logOut();
+    await clientLogOut();
     router.push('/');
+    router.refresh(); // Force a refresh to update server-side state
   };
 
   return (

@@ -2,15 +2,18 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Award, Leaf, Gift, Package, Recycle, Users, History, LogOut, Loader2 } from 'lucide-react';
+import { Award, Leaf, Gift, Package, Recycle, Users, History, LogOut, Loader2, ArrowRight } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
-import { logOut } from '../auth/actions';
+import { clientLogOut } from '@/lib/auth-client';
+import { getGroupCartsForUser } from '../cart/actions';
+import type { GroupCart } from '@/lib/types';
+
 
 const ecoHistory = [
   { action: 'Joined Community Cart', points: '+50', date: '2023-10-26' },
@@ -28,12 +31,31 @@ const rewards = [
 export default function ProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [groupCarts, setGroupCarts] = useState<GroupCart[]>([]);
+  const [loadingCarts, setLoadingCarts] = useState(true);
+
+  const handleLogout = async () => {
+    try {
+      await clientLogOut();
+      router.push('/login');
+      router.refresh(); // Force a refresh to update server-side state
+    } catch (e) {
+      console.error('Logout failed:', e);
+    }
+  };
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace('/login');
     }
+    if (user) {
+      setLoadingCarts(true);
+      getGroupCartsForUser(user.uid)
+        .then(setGroupCarts)
+        .finally(() => setLoadingCarts(false));
+    }
   }, [user, loading, router]);
+
 
   if (loading || !user) {
     return (
@@ -42,11 +64,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  const handleLogout = async () => {
-    await logOut();
-    router.push('/');
-  };
 
   return (
     <div className="container mx-auto py-12 px-4">
@@ -66,7 +83,6 @@ export default function ProfilePage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Account Details */}
         <TabsContent value="account">
           <Card>
             <CardHeader>
@@ -80,7 +96,6 @@ export default function ProfilePage() {
           </Card>
         </TabsContent>
 
-        {/* Eco Hub */}
         <TabsContent value="eco" className="space-y-8">
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="col-span-1 flex flex-col justify-center items-center text-center shadow-lg">
@@ -129,36 +144,37 @@ export default function ProfilePage() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            <Card className="shadow-lg">
+             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Family & Community Cart
+                  Family & Community Carts
                 </CardTitle>
                 <CardDescription>Manage your shared shopping groups.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <h3 className="font-semibold">The Hillside Neighbors</h3>
-                  <div className="flex items-center gap-4">
-                    <Avatar>
-                      <AvatarImage src="https://placehold.co/40x40.png" />
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    <Avatar>
-                      <AvatarImage src="https://placehold.co/40x40.png" />
-                      <AvatarFallback>AS</AvatarFallback>
-                    </Avatar>
-                    <Avatar>
-                      <AvatarImage src="https://placehold.co/40x40.png" />
-                      <AvatarFallback>ME</AvatarFallback>
-                    </Avatar>
-                    <p className="text-sm text-muted-foreground">+ 2 others</p>
-                  </div>
-                  <Button asChild>
-                    <Link href="/carts">Manage Carts</Link>
-                  </Button>
-                </div>
+                 {loadingCarts ? (
+                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                 ) : groupCarts.length > 0 ? (
+                    <div className="space-y-4">
+                        {groupCarts.slice(0, 2).map(cart => (
+                             <div key={cart.id} className="p-3 bg-secondary/30 rounded-lg">
+                                <p className="font-semibold">{cart.name}</p>
+                                <p className="text-sm text-muted-foreground">{cart.members.length} members &bull; {cart.items.reduce((acc, item) => acc + item.quantity, 0)} items</p>
+                            </div>
+                        ))}
+                         <Button asChild className="mt-4">
+                            <Link href="/carts">Manage All Carts <ArrowRight className="ml-2 h-4 w-4"/></Link>
+                        </Button>
+                    </div>
+                 ) : (
+                    <div className="text-center">
+                        <p className="text-muted-foreground">You haven't joined any group carts yet.</p>
+                        <Button asChild className="mt-4">
+                            <Link href="/carts">Create or Join a Cart</Link>
+                        </Button>
+                    </div>
+                 )}
               </CardContent>
             </Card>
 

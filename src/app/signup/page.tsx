@@ -1,51 +1,71 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
-import { useFormStatus } from 'react-dom';
-import { signUp } from '@/app/auth/actions';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { z } from 'zod';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-const initialState = {
-  error: '',
-  message: '',
-};
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending ? 'Creating Account...' : 'Create Account'}
-    </Button>
-  );
-}
+const schema = z.object({
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters long.' }),
+});
 
 export default function SignupPage() {
-  const [state, formAction] = useActionState(signUp, initialState);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
-  useEffect(() => {
-    if (state.error) {
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const validation = schema.safeParse({ email, password });
+    if (!validation.success) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: state.error,
+        description: validation.error.errors[0].message,
       });
+      return;
     }
-    if (state.message) {
+
+    try {
+      setLoading(true);
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      await setDoc(doc(db, 'users', userCred.user.uid), {
+        uid: userCred.user.uid,
+        email,
+        createdAt: serverTimestamp(),
+        ecoPoints: 0,
+      });
+
       toast({
         title: 'Success',
-        description: state.message,
+        description: 'Account created successfully! Redirecting...',
       });
+
       router.replace('/profile');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error?.message || 'Signup failed. Try again.',
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [state, toast, router]);
+  };
 
   return (
     <div className="container mx-auto max-w-md py-12">
@@ -55,7 +75,7 @@ export default function SignupPage() {
           <CardDescription>Join Walmart to start saving.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-4">
+          <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" placeholder="me@example.com" required />
@@ -64,7 +84,9 @@ export default function SignupPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" required />
             </div>
-            <SubmitButton />
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-6">
             Already have an account?{' '}

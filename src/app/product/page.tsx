@@ -10,21 +10,34 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
-import { ChevronDown, Leaf, Users, ShoppingCart, QrCode, Truck, Recycle, MapPin, Loader2 } from 'lucide-react';
+import { ChevronDown, Leaf, Users, ShoppingCart, QrCode, Truck, Recycle, MapPin, Loader2, User } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/context/auth-context';
-import { addToCart } from '@/app/cart/actions';
+import { addToCart, addToGroupCart, getGroupCartsForUser } from '@/app/cart/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { GroupCart } from '@/lib/types';
 
 export default function ProductPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [isAdding, setIsAdding] = useState(false);
+  const [isAdding, setIsAdding] = useState<string | null>(null);
+  const [groupCarts, setGroupCarts] = useState<GroupCart[]>([]);
+  const [loadingGroupCarts, setLoadingGroupCarts] = useState(false);
 
-  const handleAddToCart = async () => {
+  useEffect(() => {
+    if (user) {
+        setLoadingGroupCarts(true);
+        getGroupCartsForUser(user.uid)
+            .then(setGroupCarts)
+            .finally(() => setLoadingGroupCarts(false));
+    }
+  }, [user]);
+
+
+  const handleAddToCart = async (cartType: 'personal' | string) => {
     if (!user) {
         toast({
             variant: "destructive",
@@ -35,10 +48,18 @@ export default function ProductPage() {
         return;
     }
 
-    setIsAdding(true);
+    setIsAdding(cartType);
+    let result;
     // In a real app, you'd get the product ID from the product data.
-    const result = await addToCart('prod_1', user.uid);
-    setIsAdding(false);
+    const productId = 'prod_1';
+
+    if (cartType === 'personal') {
+        result = await addToCart(productId, user.uid);
+    } else {
+        result = await addToGroupCart(productId, cartType, user.uid);
+    }
+    
+    setIsAdding(null);
 
     if (result.success) {
         toast({
@@ -82,29 +103,43 @@ export default function ProductPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="lg" className="w-full sm:w-auto" disabled={isAdding}>
+                <Button size="lg" className="w-full sm:w-auto" disabled={!!isAdding}>
                   {isAdding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
                   {isAdding ? 'Adding...' : 'Add to Cart'} <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuContent align="start" className="w-72">
                 <DropdownMenuLabel>Choose a Cart</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleAddToCart} disabled={isAdding}>
-                  <ShoppingCart className="mr-2 h-4 w-4" />
+                <DropdownMenuItem onClick={() => handleAddToCart('personal')} disabled={!!isAdding}>
+                  <User className="mr-2 h-4 w-4" />
                   <span>Personal Cart</span>
-                  <span className="ml-auto text-sm">$3.99</span>
+                  <span className="ml-auto text-sm font-semibold">$3.99</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem disabled>
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Family Cart</span>
-                  <span className="ml-auto text-sm text-primary font-medium">(Coming soon)</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled>
-                  <Leaf className="mr-2 h-4 w-4" />
-                  <span>Community Cart</span>
-                   <span className="ml-auto text-sm text-primary font-bold">(Coming soon)</span>
-                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                 <DropdownMenuLabel>Your Group Carts</DropdownMenuLabel>
+                 {loadingGroupCarts ? (
+                    <DropdownMenuItem disabled>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span>Loading carts...</span>
+                    </DropdownMenuItem>
+                 ) : groupCarts.length > 0 ? (
+                    groupCarts.map(cart => {
+                        const discount = cart.type === 'community' ? 0.95 : 0.98;
+                        const newPrice = (3.99 * discount).toFixed(2);
+                        return (
+                            <DropdownMenuItem key={cart.id} onClick={() => handleAddToCart(cart.id)} disabled={!!isAdding}>
+                                {cart.type === 'family' ? <Users className="mr-2 h-4 w-4" /> : <Leaf className="mr-2 h-4 w-4" />}
+                                <span>{cart.name}</span>
+                                <span className="ml-auto text-sm text-primary font-bold">${newPrice}</span>
+                            </DropdownMenuItem>
+                        )
+                    })
+                 ) : (
+                    <DropdownMenuItem disabled>
+                        <span>No group carts found.</span>
+                    </DropdownMenuItem>
+                 )}
               </DropdownMenuContent>
             </DropdownMenu>
 
