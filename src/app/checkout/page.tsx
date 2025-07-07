@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Leaf, Package, Recycle, ShoppingBag, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/context/auth-context";
-import { getCart } from "../cart/actions";
-import type { CartItem } from "@/lib/types";
+import { getPersonalCart, getGroupCart } from "../cart/actions";
+import type { AnyCart, CartItem } from "@/lib/types";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const ecoOptions = [
     { id: 'return-packaging', label: 'Return packaging to delivery agent', points: 15, icon: <Recycle className="w-5 h-5 text-primary" /> },
@@ -20,22 +21,33 @@ const ecoOptions = [
     { id: 'club-packaging', label: 'Club my packaging with nearby orders (Smart Packaging)', points: 25, icon: <Package className="w-5 h-5 text-primary" /> },
 ];
 
-export default function CheckoutPage() {
+function CheckoutCore() {
     const { user, loading: authLoading } = useAuth();
-    const [cartItems, setCartItems] = useState<CartItem[]>([]);
+    const searchParams = useSearchParams();
+    const [cart, setCart] = useState<AnyCart | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const cartId = searchParams.get('cartId');
+        const cartType = searchParams.get('type');
+
         if (user) {
-            getCart(user.uid).then(items => {
-                setCartItems(items);
-                setLoading(false);
-            });
+            setLoading(true);
+            let cartPromise;
+            if (cartId && cartType && cartType !== 'personal') {
+                cartPromise = getGroupCart(cartId);
+            } else {
+                cartPromise = getPersonalCart(user.uid);
+            }
+            
+            cartPromise.then(setCart).finally(() => setLoading(false));
+
         } else if (!authLoading) {
             setLoading(false);
         }
-    }, [user, authLoading]);
+    }, [user, searchParams, authLoading]);
 
+    const cartItems = cart?.items || [];
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const tax = subtotal * 0.08;
     const total = subtotal + tax;
@@ -78,6 +90,7 @@ export default function CheckoutPage() {
                     <Card className="shadow-lg sticky top-24">
                         <CardHeader>
                             <CardTitle>Order Summary</CardTitle>
+                             <CardDescription>From: {cart?.name || 'Your Cart'}</CardDescription>
                         </CardHeader>
                         <CardContent>
                              {cartItems.length > 0 ? (
@@ -129,5 +142,13 @@ export default function CheckoutPage() {
                 </div>
             </div>
         </div>
+    )
+}
+
+export default function CheckoutPage() {
+    return (
+        <Suspense fallback={<div className="flex justify-center items-center min-h-[calc(100vh-10rem)]"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+            <CheckoutCore />
+        </Suspense>
     )
 }

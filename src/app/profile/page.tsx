@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { clientLogOut } from '@/lib/auth-client';
 import { getGroupCartsForUser } from '../cart/actions';
-import type { GroupCart } from '@/lib/types';
+import type { GroupCart, CartItem } from '@/lib/types';
 
 
 const ecoHistory = [
@@ -160,7 +160,7 @@ export default function ProfilePage() {
                         {groupCarts.slice(0, 2).map(cart => (
                              <div key={cart.id} className="p-3 bg-secondary/30 rounded-lg">
                                 <p className="font-semibold">{cart.name}</p>
-                                <p className="text-sm text-muted-foreground">{cart.members.length} members &bull; {cart.items.reduce((acc, item) => acc + item.quantity, 0)} items</p>
+                                <p className="text-sm text-muted-foreground">{cart.members.length} members &bull; {cart.items.reduce((acc, item: CartItem) => acc + item.quantity, 0)} items</p>
                             </div>
                         ))}
                          <Button asChild className="mt-4">

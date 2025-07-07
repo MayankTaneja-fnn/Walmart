@@ -12,7 +12,12 @@ export interface CartItem extends Product {
     quantity: number;
 }
 
+export type AnyCart = Cart | GroupCart;
+
 export interface Cart {
+    id: string;
+    name: string;
+    type: 'personal';
     userId: string;
     items: CartItem[];
 }
@@ -28,13 +33,3 @@ export interface GroupCart {
     createdAt: any; // Can be FieldValue, Timestamp, or string after serialization
     items: CartItem[];
 }
-
-export interface GroupCartItem {
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    image: string;
-    hint?: string;
-  }
-  

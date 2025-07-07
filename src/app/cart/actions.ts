@@ -39,23 +39,25 @@ export async function addToCart(productId: string, userId: string): Promise<{ su
 
   try {
     if (cartSnap.exists()) {
-      const cartData = cartSnap.data() as Cart;
-      const itemIndex = cartData.items.findIndex(item => item.id === productId);
+      const cartData = cartSnap.data();
+      const items = (cartData.items || []) as CartItem[];
+      const itemIndex = items.findIndex(item => item.id === productId);
 
       if (itemIndex > -1) {
-        const newItems = [...cartData.items];
+        const newItems = [...items];
         newItems[itemIndex].quantity += 1;
         await updateDoc(cartRef, { items: newItems });
       } else {
         const newItem: CartItem = { ...productToAdd, quantity: 1 };
-        await updateDoc(cartRef, { items: [...cartData.items, newItem] });
+        await updateDoc(cartRef, { items: arrayUnion(newItem) });
       }
     } else {
       const newItem: CartItem = { ...productToAdd, quantity: 1 };
-      const newCart: Cart = { userId, items: [newItem] };
+      const newCart = { userId, items: [newItem] };
       await setDoc(cartRef, newCart);
     }
     revalidatePath('/checkout');
+    revalidatePath('/carts');
     return { success: true, message: 'Item added to personal cart!' };
   } catch (error) {
     console.error("Error adding to cart:", error);
@@ -75,14 +77,15 @@ export async function addToGroupCart(productId: string, cartId: string, userId: 
   if (!cartData.members.includes(userId)) return { success: false, message: 'You are not a member of this cart.' };
 
   try {
-    const itemIndex = cartData.items.findIndex(item => item.id === productId);
+    const items = cartData.items || [];
+    const itemIndex = items.findIndex(item => item.id === productId);
     if (itemIndex > -1) {
-      const newItems = [...cartData.items];
+      const newItems = [...items];
       newItems[itemIndex].quantity += 1;
       await updateDoc(cartRef, { items: newItems });
     } else {
       const newItem: CartItem = { ...sampleProduct, quantity: 1 };
-      await updateDoc(cartRef, { items: [...cartData.items, newItem] });
+      await updateDoc(cartRef, { items: arrayUnion(newItem) });
     }
     revalidatePath('/checkout');
     revalidatePath('/carts');
@@ -93,17 +96,58 @@ export async function addToGroupCart(productId: string, cartId: string, userId: 
   }
 }
 
-export async function getCart(userId: string): Promise<CartItem[]> {
-  if (!userId) return [];
+export async function getPersonalCart(userId: string): Promise<Cart | null> {
+  if (!userId) return null;
   try {
     const cartRef = doc(db, 'carts', userId);
     const cartSnap = await getDoc(cartRef);
-    if (cartSnap.exists()) return (cartSnap.data() as Cart).items;
+
+    if (cartSnap.exists()) {
+      const cartData = cartSnap.data();
+      return {
+        id: userId,
+        userId: userId,
+        items: cartData.items || [],
+        type: 'personal',
+        name: 'Personal Cart',
+      };
+    } else {
+      // Return a default empty personal cart if one doesn't exist in the database
+      return {
+        id: userId,
+        userId: userId,
+        items: [],
+        type: 'personal',
+        name: 'Personal Cart',
+      };
+    }
   } catch (error) {
-    console.error("Error fetching cart:", error);
+    console.error("Error fetching personal cart:", error);
+    return null;
   }
-  return [];
 }
+
+export async function getGroupCart(cartId: string): Promise<GroupCart | null> {
+    if (!cartId) return null;
+    try {
+        const cartRef = doc(db, 'groupCarts', cartId);
+        const cartSnap = await getDoc(cartRef);
+        if (cartSnap.exists()) {
+            const data = cartSnap.data();
+            const createdAt = data.createdAt as Timestamp;
+            return {
+                ...data,
+                id: cartSnap.id,
+                createdAt: createdAt ? createdAt.toDate().toISOString() : new Date().toISOString()
+            } as GroupCart;
+        }
+        return null;
+    } catch(e) {
+        console.error("Error fetching group cart:", e);
+        return null;
+    }
+}
+
 
 function generateInviteCode(length = 6) {
   const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
