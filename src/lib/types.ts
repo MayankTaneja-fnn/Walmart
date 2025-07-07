@@ -1,4 +1,4 @@
-import type { Timestamp } from "firebase/firestore";
+import type {FieldValue, Timestamp } from "firebase/firestore";
 
 export interface Product {
     id: string;
@@ -25,6 +25,16 @@ export interface GroupCart {
     ownerId: string;
     members: string[];
     inviteCode: string;
-    createdAt: Timestamp;
+    createdAt: FieldValue | Timestamp;
     items: CartItem[];
 }
+
+export interface GroupCartItem {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    image: string;
+    hint?: string;
+  }
+  

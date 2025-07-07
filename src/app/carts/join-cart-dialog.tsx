@@ -19,8 +19,15 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 
-const initialState = {};
+interface JoinCartState {
+  error?: string;
+  success?: boolean;
+}
+
+const initialState: JoinCartState = {};
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -32,8 +39,22 @@ function SubmitButton() {
 }
 
 export function JoinCartDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
-  const [state, formAction] = useActionState(joinGroupCart, initialState);
+  const [state, formAction] = useActionState<JoinCartState, FormData>(joinGroupCart, initialState);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'Please log in to join a cart.',
+      });
+      onOpenChange(false);
+      router.push('/login');
+    }
+  }, [user, toast, onOpenChange, router]);
 
   useEffect(() => {
     if (state?.error) {
@@ -75,11 +96,11 @@ export function JoinCartDialog({ open, onOpenChange }: { open: boolean, onOpenCh
               />
             </div>
           </div>
-           {state?.error && (
+          {state?.error && (
             <Alert variant="destructive" className="mb-4">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>Heads up!</AlertTitle>
-                <AlertDescription>{state.error}</AlertDescription>
+              <Terminal className="h-4 w-4" />
+              <AlertTitle>Heads up!</AlertTitle>
+              <AlertDescription>{state.error}</AlertDescription>
             </Alert>
           )}
           <DialogFooter>
