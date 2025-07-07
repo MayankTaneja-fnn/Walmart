@@ -47,10 +47,23 @@ function CheckoutCore() {
         }
     }, [user, searchParams, authLoading]);
 
+    const cartType = searchParams.get('type');
     const cartItems = cart?.items || [];
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * 0.08;
-    const total = subtotal + tax;
+    
+    let discount = 0;
+    let discountPercentText = '';
+    if (cartType === 'family') {
+        discount = subtotal * 0.02; // 2% discount
+        discountPercentText = 'Family Cart Discount (2%)';
+    } else if (cartType === 'community') {
+        discount = subtotal * 0.05; // 5% discount
+        discountPercentText = 'Community Cart Discount (5%)';
+    }
+    
+    const discountedSubtotal = subtotal - discount;
+    const tax = discountedSubtotal * 0.08;
+    const total = discountedSubtotal + tax;
 
     if (loading || authLoading) {
         return (
@@ -115,8 +128,14 @@ function CheckoutCore() {
                                             <p className="text-muted-foreground">Subtotal</p>
                                             <p className="font-medium">${subtotal.toFixed(2)}</p>
                                         </div>
+                                        {discount > 0 && (
+                                            <div className="flex justify-between text-primary">
+                                                <p>{discountPercentText}</p>
+                                                <p className="font-medium">-${discount.toFixed(2)}</p>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between">
-                                            <p className="text-muted-foreground">Taxes</p>
+                                            <p className="text-muted-foreground">Taxes (8%)</p>
                                             <p className="font-medium">${tax.toFixed(2)}</p>
                                         </div>
                                     </div>
