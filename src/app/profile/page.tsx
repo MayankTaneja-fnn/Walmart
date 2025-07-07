@@ -154,7 +154,7 @@ export default function ProfilePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5"/>Rewards Store</CardTitle>
                 <CardDescription>Redeem your Eco-Points for great rewards.</CardDescription>
-              </CardHeader>
+              </Header>
               <CardContent className="space-y-4">
                 {rewards.map((reward, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
