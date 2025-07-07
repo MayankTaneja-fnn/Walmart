@@ -8,7 +8,6 @@ import { AuthProvider } from '@/context/auth-context';
 export const metadata: Metadata = {
   title: 'EcoCart',
   description: 'Shop smart, save the planet.',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }],
 };
 
 export default function RootLayout({

@@ -1,11 +1,12 @@
 'use server';
 
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { z } from 'zod';
 
 const AuthSchema = z.object({
@@ -31,9 +32,20 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
   const { email, password } = validatedFields.data;
 
   try {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Create user document in Firestore
+    await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
+        email: user.email,
+        createdAt: new Date(),
+        ecoPoints: 0,
+    });
+
     return { message: 'Account created successfully! Redirecting...' };
   } catch (e: any) {
+    console.log(e);
     if (e.code === 'auth/email-already-in-use') {
         return { error: 'This email is already registered.' };
     }
