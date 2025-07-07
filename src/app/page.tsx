@@ -137,7 +137,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
             <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold font-headline">Shop Green, Live Full</h2>
-                <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">EcoCart makes it easy to make a positive impact. Here’s how we help you and the planet.</p>
+                <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">Walmart makes it easy to make a positive impact. Here’s how we help you and the planet.</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 {ecoFeatures.map(feature => (

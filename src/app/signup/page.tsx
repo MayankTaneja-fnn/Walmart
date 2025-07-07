@@ -43,7 +43,7 @@ export default function SignupPage() {
         title: 'Success',
         description: state.message,
       });
-      router.push('/profile');
+      router.replace('/profile');
     }
   }, [state, toast, router]);
 
@@ -52,7 +52,7 @@ export default function SignupPage() {
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-          <CardDescription>Join EcoCart to start saving.</CardDescription>
+          <CardDescription>Join Walmart to start saving.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-4">

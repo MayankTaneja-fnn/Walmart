@@ -44,7 +44,7 @@ export default function LoginPage() {
             title: 'Success',
             description: state.message,
         });
-        router.push('/profile');
+        router.replace('/profile');
     }
   }, [state, toast, router]);
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
-          <CardDescription>Log in to your EcoCart account.</CardDescription>
+          <CardDescription>Log in to your Walmart account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={formAction} className="space-y-4">

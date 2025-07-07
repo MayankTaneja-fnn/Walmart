@@ -20,43 +20,44 @@ const ecoHistory = [
 ];
 
 const rewards = [
-    { title: '5% Off Next Order', points: 500, icon: <Gift /> },
-    { title: 'Free Eco-Friendly Tote Bag', points: 1000, icon: <Award /> },
-    { title: 'Plant a Tree in Your Name', points: 2500, icon: <Leaf /> },
-]
+  { title: '5% Off Next Order', points: 500, icon: <Gift /> },
+  { title: 'Free Eco-Friendly Tote Bag', points: 1000, icon: <Award /> },
+  { title: 'Plant a Tree in Your Name', points: 2500, icon: <Leaf /> },
+];
 
 export default function ProfilePage() {
-    const { user, loading } = useAuth();
-    const router = useRouter();
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-    useEffect(() => {
-        if (!loading && !user) {
-            router.push('/login');
-        }
-    }, [user, loading, router]);
-    
-    const handleLogout = async () => {
-        await logOut();
-        router.push('/');
-    };
-
-    if (loading || !user) {
-        return (
-            <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            </div>
-        );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
     }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const handleLogout = async () => {
+    await logOut();
+    router.push('/');
+  };
 
   return (
     <div className="container mx-auto py-12 px-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="font-headline text-4xl font-bold">My Account</h1>
         <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
         </Button>
       </div>
+
       <Tabs defaultValue="eco" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="account">Account Details</TabsTrigger>
@@ -64,6 +65,8 @@ export default function ProfilePage() {
             <Leaf className="w-4 h-4 mr-2" /> Eco Hub
           </TabsTrigger>
         </TabsList>
+
+        {/* Account Details */}
         <TabsContent value="account">
           <Card>
             <CardHeader>
@@ -76,22 +79,28 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Eco Hub */}
         <TabsContent value="eco" className="space-y-8">
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="col-span-1 md:col-span-1 flex flex-col justify-center items-center text-center shadow-lg">
-                <CardHeader>
-                    <div className="mx-auto bg-accent/20 rounded-full p-4 w-fit">
-                        <Award className="w-10 h-10 text-accent-foreground" />
-                    </div>
-                </CardHeader>
+            <Card className="col-span-1 flex flex-col justify-center items-center text-center shadow-lg">
+              <CardHeader>
+                <div className="mx-auto bg-accent/20 rounded-full p-4 w-fit">
+                  <Award className="w-10 h-10 text-accent-foreground" />
+                </div>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">Eco-Points Balance</p>
                 <p className="text-5xl font-bold text-primary">1,250</p>
               </CardContent>
             </Card>
+
             <Card className="md:col-span-2 shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History className="w-5 h-5"/>Recent Eco-Activity</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Recent Eco-Activity
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -106,8 +115,8 @@ export default function ProfilePage() {
                     {ecoHistory.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium flex items-center gap-2">
-                            {index % 2 === 0 ? <Package className="w-4 h-4 text-primary" /> : <Recycle className="w-4 h-4 text-primary" />}
-                            {item.action}
+                          {index % 2 === 0 ? <Package className="w-4 h-4 text-primary" /> : <Recycle className="w-4 h-4 text-primary" />}
+                          {item.action}
                         </TableCell>
                         <TableCell>{item.date}</TableCell>
                         <TableCell className="text-right text-primary font-bold">{item.points}</TableCell>
@@ -118,52 +127,60 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           </div>
-          
+
           <div className="grid md:grid-cols-2 gap-8">
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/>Family & Community Cart</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Family & Community Cart
+                </CardTitle>
                 <CardDescription>Manage your shared shopping groups.</CardDescription>
-              </Header>
+              </CardHeader>
               <CardContent>
-                 <div className="space-y-4">
-                    <h3 className="font-semibold">The Hillside Neighbors</h3>
-                    <div className="flex items-center gap-4">
-                        <Avatar>
-                            <AvatarImage src="https://placehold.co/40x40.png" />
-                            <AvatarFallback>JD</AvatarFallback>
-                        </Avatar>
-                        <Avatar>
-                            <AvatarImage src="https://placehold.co/40x40.png" />
-                            <AvatarFallback>AS</AvatarFallback>
-                        </Avatar>
-                         <Avatar>
-                            <AvatarImage src="https://placehold.co/40x40.png" />
-                            <AvatarFallback>ME</AvatarFallback>
-                        </Avatar>
-                        <p className="text-sm text-muted-foreground">+ 2 others</p>
-                    </div>
-                    <Button asChild>
-                        <Link href="/carts">Manage Carts</Link>
-                    </Button>
-                 </div>
+                <div className="space-y-4">
+                  <h3 className="font-semibold">The Hillside Neighbors</h3>
+                  <div className="flex items-center gap-4">
+                    <Avatar>
+                      <AvatarImage src="https://placehold.co/40x40.png" />
+                      <AvatarFallback>JD</AvatarFallback>
+                    </Avatar>
+                    <Avatar>
+                      <AvatarImage src="https://placehold.co/40x40.png" />
+                      <AvatarFallback>AS</AvatarFallback>
+                    </Avatar>
+                    <Avatar>
+                      <AvatarImage src="https://placehold.co/40x40.png" />
+                      <AvatarFallback>ME</AvatarFallback>
+                    </Avatar>
+                    <p className="text-sm text-muted-foreground">+ 2 others</p>
+                  </div>
+                  <Button asChild>
+                    <Link href="/carts">Manage Carts</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Gift className="w-5 h-5"/>Rewards Store</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="w-5 h-5" />
+                  Rewards Store
+                </CardTitle>
                 <CardDescription>Redeem your Eco-Points for great rewards.</CardDescription>
-              </Header>
+              </CardHeader>
               <CardContent className="space-y-4">
                 {rewards.map((reward, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
-                        <div className="flex items-center gap-3">
-                            <div className="text-primary">{reward.icon}</div>
-                            <span className="font-medium">{reward.title}</span>
-                        </div>
-                        <Button size="sm" disabled={1250 < reward.points}>{reward.points} pts</Button>
+                  <div key={index} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="text-primary">{reward.icon}</div>
+                      <span className="font-medium">{reward.title}</span>
                     </div>
+                    <Button size="sm" disabled={1250 < reward.points}>
+                      {reward.points} pts
+                    </Button>
+                  </div>
                 ))}
               </CardContent>
             </Card>

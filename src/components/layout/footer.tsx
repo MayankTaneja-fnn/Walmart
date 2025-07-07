@@ -1,4 +1,4 @@
-import { Leaf } from 'lucide-react';
+import { WalmartLogo } from '@/components/icons/walmart-logo';
 import Link from 'next/link';
 
 export default function Footer() {
@@ -8,9 +8,9 @@ export default function Footer() {
         <div className="flex flex-col items-center text-center">
           <Link href="/" className="flex items-center gap-2">
             <div className="bg-primary text-primary-foreground p-2 rounded-full">
-                <Leaf className="h-6 w-6" />
+                <WalmartLogo className="h-6 w-6" />
             </div>
-            <span className="font-bold text-xl text-primary font-headline">EcoCart</span>
+            <span className="font-bold text-xl text-primary font-headline">Walmart</span>
           </Link>
           <p className="max-w-md mx-auto mt-4 text-sm text-muted-foreground">
             Making sustainable shopping simple, rewarding, and accessible for everyone.
@@ -33,7 +33,7 @@ export default function Footer() {
         <hr className="my-6 border-border" />
         <div className="text-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} EcoCart. All Rights Reserved.
+            © {new Date().getFullYear()} Walmart. All Rights Reserved.
           </p>
         </div>
       </div>

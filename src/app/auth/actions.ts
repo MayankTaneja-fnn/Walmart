@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { z } from 'zod';
+import { serverTimestamp } from "firebase/firestore";
 
 const AuthSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -39,7 +40,7 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
     await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         email: user.email,
-        createdAt: new Date(),
+        createdAt: serverTimestamp(),
         ecoPoints: 0,
     });
 
