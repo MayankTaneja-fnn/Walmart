@@ -23,7 +23,7 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
   const validatedFields = AuthSchema.safeParse(
     Object.fromEntries(formData.entries())
   );
-
+  
   if (!validatedFields.success) {
       const firstError = validatedFields.error.errors[0].message;
       return { error: firstError };
@@ -45,7 +45,6 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
 
     return { message: 'Account created successfully! Redirecting...' };
   } catch (e: any) {
-    console.log(e);
     if (e.code === 'auth/email-already-in-use') {
         return { error: 'This email is already registered.' };
     }
