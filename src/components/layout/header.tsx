@@ -2,10 +2,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Leaf, Menu, Search, ShoppingCart, User, Grid3X3, Heart } from 'lucide-react';
+import { Leaf, Menu, Search, ShoppingCart, User, Grid3X3, Heart, Loader } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/auth-context';
+import { logOut } from '@/app/auth/actions';
 
 const navLinks = [
   { href: '/product', label: 'All Products' },
@@ -16,11 +18,17 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logOut();
+    router.push('/');
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-20 max-w-screen-2xl items-center justify-between gap-4">
-        {/* Logo */}
         <Link href="/" className="flex items-center gap-2 mr-4">
           <Button variant="ghost" size="icon" className="w-12 h-12 bg-primary hover:bg-primary/90 text-primary-foreground hover:text-primary-foreground rounded-full">
             <Leaf className="h-6 w-6" />
@@ -28,7 +36,6 @@ export default function Header() {
           <span className="font-bold text-2xl hidden md:block text-primary font-headline">EcoCart</span>
         </Link>
         
-        {/* Mobile Menu */}
         <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
@@ -64,12 +71,14 @@ export default function Header() {
                   >
                     Account
                   </Link>
+                  {user && (
+                    <Button onClick={handleLogout} variant="ghost" className='justify-start p-0 text-lg text-muted-foreground hover:text-primary'>Log Out</Button>
+                  )}
               </nav>
             </SheetContent>
           </Sheet>
         </div>
 
-        {/* Search Bar */}
         <div className="hidden md:flex flex-1 max-w-xl relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input placeholder="Search everything at EcoCart online..." className="pl-10 h-11" />
@@ -78,18 +87,30 @@ export default function Header() {
            </Button>
         </div>
 
-        {/* Action Icons */}
         <div className="flex items-center gap-2">
           <Button variant="ghost" className="hidden md:flex flex-col h-auto p-2">
             <Heart className="h-6 w-6" />
             <span className="text-xs">Lists</span>
           </Button>
-          <Button variant="ghost" asChild className="hidden md:flex flex-col h-auto p-2">
-            <Link href="/profile">
-              <User className="h-6 w-6" />
-              <span className="text-xs">Account</span>
-            </Link>
-          </Button>
+
+          {loading ? (
+             <div className="hidden md:flex flex-col h-auto p-2 w-[52px] items-center"><Loader className="h-6 w-6 animate-spin" /></div>
+          ) : user ? (
+            <Button variant="ghost" asChild className="hidden md:flex flex-col h-auto p-2">
+                <Link href="/profile">
+                  <User className="h-6 w-6" />
+                  <span className="text-xs">Account</span>
+                </Link>
+            </Button>
+          ) : (
+             <Button variant="ghost" asChild className="hidden md:flex flex-col h-auto p-2">
+                <Link href="/login">
+                  <User className="h-6 w-6" />
+                  <span className="text-xs">Log In</span>
+                </Link>
+            </Button>
+          )}
+
           <Button variant="ghost" asChild className="flex flex-col h-auto p-2">
             <Link href="/checkout">
               <ShoppingCart className="h-6 w-6" />

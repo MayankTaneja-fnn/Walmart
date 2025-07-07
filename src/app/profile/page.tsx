@@ -1,10 +1,16 @@
+'use client';
+
+import { useAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Award, Leaf, Gift, Package, Recycle, Users, History } from 'lucide-react';
+import { Award, Leaf, Gift, Package, Recycle, Users, History, LogOut, Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
+import { logOut } from '../auth/actions';
 
 const ecoHistory = [
   { action: 'Joined Community Cart', points: '+50', date: '2023-10-26' },
@@ -20,9 +26,37 @@ const rewards = [
 ]
 
 export default function ProfilePage() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/login');
+        }
+    }, [user, loading, router]);
+    
+    const handleLogout = async () => {
+        await logOut();
+        router.push('/');
+    };
+
+    if (loading || !user) {
+        return (
+            <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            </div>
+        );
+    }
+
   return (
     <div className="container mx-auto py-12 px-4">
-      <h1 className="font-headline text-4xl font-bold mb-8">My Account</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="font-headline text-4xl font-bold">My Account</h1>
+        <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+        </Button>
+      </div>
       <Tabs defaultValue="eco" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="account">Account Details</TabsTrigger>
@@ -34,10 +68,11 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>This is a placeholder for account settings.</CardDescription>
+              <CardDescription>Your account details.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>User account details and settings will be displayed here.</p>
+              <p className="font-semibold">Email:</p>
+              <p>{user.email}</p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -89,7 +124,7 @@ export default function ProfilePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5"/>Family & Community Cart</CardTitle>
                 <CardDescription>Manage your shared shopping groups.</CardDescription>
-              </CardHeader>
+              </Header>
               <CardContent>
                  <div className="space-y-4">
                     <h3 className="font-semibold">The Hillside Neighbors</h3>

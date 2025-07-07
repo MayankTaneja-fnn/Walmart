@@ -1,0 +1,79 @@
+'use client';
+
+import { useFormState, useFormStatus } from 'react-dom';
+import { signUp } from '@/app/auth/actions';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import Link from 'next/link';
+import { useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+
+const initialState = {
+  error: '',
+  message: '',
+};
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? 'Creating Account...' : 'Create Account'}
+    </Button>
+  );
+}
+
+export default function SignupPage() {
+  const [state, formAction] = useFormState(signUp, initialState);
+  const { toast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: state.error,
+      });
+    }
+    if (state.message) {
+      toast({
+        title: 'Success',
+        description: state.message,
+      });
+      router.push('/profile');
+    }
+  }, [state, toast, router]);
+
+  return (
+    <div className="container mx-auto max-w-md py-12">
+      <Card>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
+          <CardDescription>Join EcoCart to start saving.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={formAction} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="me@example.com" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required />
+            </div>
+            <SubmitButton />
+          </form>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Already have an account?{' '}
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+              Log in
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
