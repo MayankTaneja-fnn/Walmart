@@ -45,9 +45,13 @@ export async function signUp(prevState: AuthState, formData: FormData): Promise<
 
     return { message: 'Account created successfully! Redirecting...' };
   } catch (e: any) {
+    if (e.code === 'auth/invalid-api-key') {
+        return { error: 'Firebase API Key is invalid. Please check your project configuration.' };
+    }
     if (e.code === 'auth/email-already-in-use') {
         return { error: 'This email is already registered.' };
     }
+    console.error('Sign up error:', e);
     return { error: 'An unknown error occurred. Please try again.' };
   }
 }
@@ -68,6 +72,9 @@ export async function signIn(prevState: AuthState, formData: FormData): Promise<
     await signInWithEmailAndPassword(auth, email, password);
     return { message: 'Logged in successfully! Redirecting...' };
   } catch (e: any) {
+     if (e.code === 'auth/invalid-api-key') {
+        return { error: 'Firebase API Key is invalid. Please check your project configuration.' };
+    }
     return { error: 'Invalid email or password. Please try again.' };
   }
 }
