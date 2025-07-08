@@ -2,28 +2,28 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, PlusCircle, Loader2, Pencil, Trash2, LogOut, ShoppingCart, User } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Users, Plus, Minus, Loader2, Trash2, ShoppingCart, User, Wand2 } from "lucide-react";
 import Link from 'next/link';
-import { useEffect, useState } from "react";
+import Image from 'next/image';
+import { useEffect, useState, useTransition } from "react";
 import { useAuth } from "@/context/auth-context";
 import {
   getGroupCartsForUser,
   getPersonalCart,
-  leaveCart,
-  deleteCart,
-  updateCart
+  updateItemQuantity,
 } from "../cart/actions";
-import type { GroupCart, Cart, CartItem } from "@/lib/types";
-import { CreateCartDialog } from "./create-cart-dialog";
-import { JoinCartDialog } from "./join-cart-dialog";
+import type { AnyCart, CartItem } from "@/lib/types";
 import { useToast } from '@/hooks/use-toast';
+import { getCartRecommendations } from "@/ai/flows/cart-recommendations";
 
 export default function CartsPage() {
   const { user, loading: authLoading } = useAuth();
-  const [allCarts, setAllCarts] = useState<(GroupCart | Cart)[]>([]);
+  const [allCarts, setAllCarts] = useState<AnyCart[]>([]);
   const [loadingCarts, setLoadingCarts] = useState(true);
-  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-  const [isJoinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null); // "cartId-itemId"
+  const [recommendations, setRecommendations] = useState<{ recommendations: string[], reason: string } | null>(null);
+  const [loadingRecs, startRecsTransition] = useTransition();
 
   const { toast } = useToast();
 
@@ -31,189 +31,185 @@ export default function CartsPage() {
     if (user) {
       setLoadingCarts(true);
       Promise.all([
-        getGroupCartsForUser(user.uid),
-        getPersonalCart(user.uid)
-      ]).then(([groupCarts, personalCart]) => {
-        const cartsToShow: (GroupCart | Cart)[] = [];
+        getPersonalCart(user.uid),
+        getGroupCartsForUser(user.uid)
+      ]).then(([personalCart, groupCarts]) => {
+        const cartsToShow: AnyCart[] = [];
         if (personalCart) {
           cartsToShow.push(personalCart);
         }
         cartsToShow.push(...groupCarts);
-        setAllCarts(cartsToShow.sort((a,b) => a.type === 'personal' ? -1 : 1));
+        // Only show carts with items
+        setAllCarts(cartsToShow.filter(c => c.items.length > 0).sort((a,b) => a.type === 'personal' ? -1 : 1));
       }).finally(() => setLoadingCarts(false));
     } else if (!authLoading) {
       setLoadingCarts(false);
     }
-  }, [user, authLoading, isCreateDialogOpen, isJoinDialogOpen]);
+  }, [user, authLoading]);
 
-  const handleLeaveCart = async (cartId: string) => {
+  const handleQuantityChange = async (cartId: string, cartType: 'personal' | 'group', itemId: string, newQuantity: number) => {
     if (!user) return;
-    const res = await leaveCart(cartId, user.uid);
-    if (res.success) {
-      setAllCarts((prev) => prev.filter((cart) => cart.id !== cartId));
-      toast({ title: "Success", description: "You have left the cart." });
+    setIsUpdating(`${cartId}-${itemId}`);
+
+    const result = await updateItemQuantity(cartId, cartType, itemId, newQuantity, user.uid);
+
+    if (result.success) {
+      setAllCarts(prevCarts => {
+        return prevCarts.map(cart => {
+          if (cart.id === cartId) {
+            let updatedItems;
+            if (newQuantity > 0) {
+              updatedItems = cart.items.map(item =>
+                item.id === itemId ? { ...item, quantity: newQuantity } : item
+              );
+            } else {
+              updatedItems = cart.items.filter(item => item.id !== itemId);
+            }
+            return { ...cart, items: updatedItems };
+          }
+          return cart;
+        }).filter(c => c.items.length > 0); // Also filter out carts that become empty
+      });
+      toast({ title: "Cart updated!" });
     } else {
-      toast({ variant: 'destructive', title: "Leave Failed", description: res.error });
+      toast({ variant: 'destructive', title: "Update Failed", description: result.message });
     }
+    setIsUpdating(null);
+  };
+  
+  const handleGetRecommendations = () => {
+    const allItems = allCarts.flatMap(cart => cart.items.map(item => ({ name: item.name })));
+    if (allItems.length === 0) {
+      toast({ variant: "destructive", title: "Your carts are empty", description: "Add items to get recommendations." });
+      return;
+    }
+    
+    startRecsTransition(async () => {
+      const result = await getCartRecommendations({ items: allItems });
+      if (result) {
+        setRecommendations(result);
+      } else {
+        toast({ variant: "destructive", title: "Could not get recommendations." });
+      }
+    });
   };
 
-  const handleDeleteCart = async (cartId: string, ownerId: string) => {
-    if (!user) return;
-    const res = await deleteCart(cartId, ownerId, user.uid);
-    if (res.success) {
-      setAllCarts((prev) => prev.filter((cart) => cart.id !== cartId));
-      toast({ title: "Success", description: "The cart has been deleted." });
-    } else {
-      toast({ variant: 'destructive', title: "Delete Failed", description: res.error });
-    }
-  };
-
-  const handleUpdateCart = async (cartId: string, name: string, address: string) => {
-    if (!user) return;
-    const res = await updateCart(cartId, name, address, user.uid);
-    if (res.success) {
-      setAllCarts((prev) =>
-        prev.map((cart) =>
-          cart.id === cartId ? { ...cart, name, address } : cart
-        ) as (GroupCart | Cart)[]
-      );
-      toast({ title: "Success", description: "The cart has been updated." });
-    } else {
-      toast({ variant: 'destructive', title: "Update Failed", description: res.error });
-    }
-  };
+  const totalItemsInAllCarts = allCarts.reduce((acc, cart) => acc + cart.items.length, 0);
 
   return (
-    <>
-      <CreateCartDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} />
-      <JoinCartDialog open={isJoinDialogOpen} onOpenChange={setJoinDialogOpen} />
-      <div className="container mx-auto max-w-4xl py-12 px-4">
-        <div className="text-center mb-12">
-          <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
-            Family & Community Carts
-          </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Shop together to save money, reduce packaging, and lower your carbon footprint.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <PlusCircle className="w-8 h-8 text-primary" />
-                <CardTitle className="font-headline text-2xl">Create a New Cart</CardTitle>
-              </div>
-              <CardDescription>
-                Start a new group with your family, friends, or neighbors.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                As the creator, you can invite members, set a delivery address, and manage the group.
-              </p>
-              <Button className="w-full" onClick={() => setCreateDialogOpen(true)}>Create a Cart</Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-primary" />
-                <CardTitle className="font-headline text-2xl">Join an Existing Cart</CardTitle>
-              </div>
-              <CardDescription>Already have an invite code? Join a group here.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Enter the invite code from a friend to start shopping together.
-              </p>
-              <Button variant="secondary" className="w-full" onClick={() => setJoinDialogOpen(true)}>Join with Code</Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-16">
-          <h2 className="font-headline text-2xl font-bold text-center">Your Carts</h2>
-          {loadingCarts || authLoading ? (
-            <div className="flex justify-center items-center h-32">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : allCarts.length > 0 ? (
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              {allCarts.map((cart) => (
-                <Card key={cart.id} className="shadow-md flex flex-col">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                       {cart.type === 'personal' ? <User className="w-5 h-5"/> : <Users className="w-5 h-5"/>} {cart.name}
-                    </CardTitle>
-                    <CardDescription>
-                      Type: <span className="capitalize font-medium text-primary">{cart.type}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="flex-grow">
-                    {cart.type !== 'personal' && (
-                        <>
-                            <p className="text-sm text-muted-foreground">
-                            Invite Code: <span className="font-mono bg-muted px-2 py-1 rounded">{cart.inviteCode}</span>
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-2">
-                            Members: {cart.members.length}
-                            </p>
-                        </>
-                    )}
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Items: {cart.items.reduce((acc: number, i: CartItem) => acc + i.quantity, 0)}
-                    </p>
-                    {cart.type !== 'personal' && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                        Created At: {new Date(cart.createdAt).toLocaleDateString()}
-                        </p>
-                    )}
-                  </CardContent>
-                  <CardContent>
-                    <div className="flex gap-2 mt-4 flex-wrap">
-                        <Button asChild>
-                           <Link href={`/checkout?cartId=${cart.id}&type=${cart.type}`}>
-                            <ShoppingCart className="w-4 h-4 mr-1"/> Checkout
-                           </Link>
-                        </Button>
-                        {cart.type !== 'personal' && user && cart.ownerId === user.uid ? (
-                        <>
-                            <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                                handleUpdateCart(
-                                cart.id,
-                                prompt("New name", cart.name) || cart.name,
-                                prompt("New address", cart.address) || cart.address
-                                )
-                            }
-                            >
-                            <Pencil className="w-4 h-4 mr-1" /> Edit
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteCart(cart.id, cart.ownerId)}>
-                            <Trash2 className="w-4 h-4 mr-1" /> Delete
-                            </Button>
-                        </>
-                        ) : cart.type !== 'personal' ? (
-                        <Button size="sm" variant="outline" onClick={() => handleLeaveCart(cart.id)}>
-                            <LogOut className="w-4 h-4 mr-1" /> Leave Cart
-                        </Button>
-                        ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center mt-6">
-              <p className="text-muted-foreground">You are not currently a member of any carts.</p>
-            </div>
-          )}
-        </div>
+    <div className="container mx-auto max-w-4xl py-12 px-4">
+      <div className="text-center mb-12">
+        <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
+          Your Carts
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Manage your items, update quantities, and proceed to checkout.
+        </p>
       </div>
-    </>
+      
+      {loadingCarts || authLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : allCarts.length > 0 ? (
+        <div className="space-y-8">
+            <Accordion type="multiple" className="w-full space-y-4">
+                {allCarts.map((cart) => (
+                    <AccordionItem value={cart.id} key={cart.id} className="border rounded-lg shadow-md bg-card">
+                        <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                             <div className="flex items-center gap-3">
+                                {cart.type === 'personal' ? <User className="w-6 h-6 text-primary"/> : <Users className="w-6 h-6 text-primary"/>}
+                                <div>
+                                    <h2 className="font-headline text-xl text-left">{cart.name}</h2>
+                                    <p className="text-sm text-muted-foreground text-left">
+                                        {cart.items.reduce((acc: number, i: CartItem) => acc + i.quantity, 0)} items &bull; Type: <span className="capitalize font-medium text-primary">{cart.type}</span>
+                                    </p>
+                                </div>
+                             </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-6 pb-4">
+                           <div className="space-y-4 pt-4 border-t">
+                             {cart.items.map(item => (
+                               <div key={item.id} className="flex items-center justify-between gap-4">
+                                 <div className="flex items-center gap-4">
+                                   <Image src={item.image} alt={item.name} width={64} height={64} className="rounded-md border" data-ai-hint={item.hint}/>
+                                   <div>
+                                     <p className="font-semibold">{item.name}</p>
+                                     <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+                                   </div>
+                                 </div>
+                                 <div className="flex items-center gap-2">
+                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, item.quantity - 1)} disabled={isUpdating === `${cart.id}-${item.id}`}>
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <span className="font-bold w-4 text-center">{item.quantity}</span>
+                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, item.quantity + 1)} disabled={isUpdating === `${cart.id}-${item.id}`}>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, 0)} disabled={isUpdating === `${cart.id}-${item.id}`}>
+                                        {isUpdating === `${cart.id}-${item.id}` ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                                    </Button>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                           <Button asChild className="mt-6 w-full sm:w-auto float-right">
+                               <Link href={`/checkout?cartId=${cart.id}&type=${cart.type}`}>
+                                <ShoppingCart className="w-4 h-4 mr-1"/> Proceed to Checkout
+                               </Link>
+                           </Button>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
+            
+            {totalItemsInAllCarts > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Wand2 className="w-5 h-5 text-primary" />
+                    AI Recommendations
+                  </CardTitle>
+                  <CardDescription>
+                    Discover products you might also like based on what's in your carts.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingRecs ? (
+                     <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Finding recommendations...</span>
+                     </div>
+                  ) : recommendations ? (
+                    <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground italic">{recommendations.reason}</p>
+                        <ul className="list-disc list-inside font-semibold">
+                            {recommendations.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
+                        </ul>
+                    </div>
+                  ) : (
+                     <Button onClick={handleGetRecommendations} disabled={loadingRecs}>
+                        Get AI Recommendations
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+        </div>
+      ) : (
+        <div className="text-center py-16">
+          <p className="text-muted-foreground text-xl">
+            All your carts are currently empty.
+          </p>
+          <p className="text-muted-foreground mt-2">
+            Add some products or <Link href="/carts/create-cart-dialog" className="underline text-primary">create a new cart</Link> to get started.
+          </p>
+          <Button asChild className="mt-4">
+            <Link href="/product">Start Shopping</Link>
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
