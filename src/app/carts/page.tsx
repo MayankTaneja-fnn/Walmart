@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Users, Plus, Minus, Loader2, Trash2, ShoppingCart, User, Wand2 } from "lucide-react";
 import Link from 'next/link';
 import Image from 'next/image';
@@ -16,12 +15,21 @@ import {
 import type { AnyCart, CartItem } from "@/lib/types";
 import { useToast } from '@/hooks/use-toast';
 import { getCartRecommendations } from "@/ai/flows/cart-recommendations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 export default function CartsPage() {
   const { user, loading: authLoading } = useAuth();
   const [allCarts, setAllCarts] = useState<AnyCart[]>([]);
+  const [selectedCartId, setSelectedCartId] = useState<string | null>(null);
   const [loadingCarts, setLoadingCarts] = useState(true);
-  const [isUpdating, setIsUpdating] = useState<string | null>(null); // "cartId-itemId"
+  const [isUpdating, setIsUpdating] = useState<string | null>(null); // itemId
   const [recommendations, setRecommendations] = useState<{ recommendations: string[], reason: string } | null>(null);
   const [loadingRecs, startRecsTransition] = useTransition();
 
@@ -39,24 +47,37 @@ export default function CartsPage() {
           cartsToShow.push(personalCart);
         }
         cartsToShow.push(...groupCarts);
-        // Only show carts with items
-        setAllCarts(cartsToShow.filter(c => c.items.length > 0).sort((a,b) => a.type === 'personal' ? -1 : 1));
+        setAllCarts(cartsToShow);
+
+        const personalCartWithItems = cartsToShow.find(c => c.type === 'personal' && c.items.length > 0);
+        const firstCartWithItems = cartsToShow.find(c => c.items.length > 0);
+
+        if (personalCartWithItems) {
+            setSelectedCartId(personalCartWithItems.id);
+        } else if (firstCartWithItems) {
+            setSelectedCartId(firstCartWithItems.id);
+        } else if (cartsToShow.length > 0) {
+            setSelectedCartId(cartsToShow[0].id);
+        }
+        
       }).finally(() => setLoadingCarts(false));
     } else if (!authLoading) {
       setLoadingCarts(false);
     }
   }, [user, authLoading]);
 
-  const handleQuantityChange = async (cartId: string, cartType: 'personal' | 'group', itemId: string, newQuantity: number) => {
-    if (!user) return;
-    setIsUpdating(`${cartId}-${itemId}`);
+  const selectedCart = allCarts.find(cart => cart.id === selectedCartId);
 
-    const result = await updateItemQuantity(cartId, cartType, itemId, newQuantity, user.uid);
+  const handleQuantityChange = async (itemId: string, newQuantity: number) => {
+    if (!user || !selectedCart) return;
+    setIsUpdating(itemId);
+
+    const result = await updateItemQuantity(selectedCart.id, selectedCart.type, itemId, newQuantity, user.uid);
 
     if (result.success) {
       setAllCarts(prevCarts => {
         return prevCarts.map(cart => {
-          if (cart.id === cartId) {
+          if (cart.id === selectedCart.id) {
             let updatedItems;
             if (newQuantity > 0) {
               updatedItems = cart.items.map(item =>
@@ -68,7 +89,7 @@ export default function CartsPage() {
             return { ...cart, items: updatedItems };
           }
           return cart;
-        }).filter(c => c.items.length > 0); // Also filter out carts that become empty
+        });
       });
       toast({ title: "Cart updated!" });
     } else {
@@ -97,7 +118,7 @@ export default function CartsPage() {
   const totalItemsInAllCarts = allCarts.reduce((acc, cart) => acc + cart.items.length, 0);
 
   return (
-    <div className="container mx-auto max-w-4xl py-12 px-4">
+    <div className="container mx-auto max-w-5xl py-12 px-4">
       <div className="text-center mb-12">
         <h1 className="font-headline text-4xl md:text-5xl font-bold text-primary">
           Your Carts
@@ -112,101 +133,118 @@ export default function CartsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : allCarts.length > 0 ? (
-        <div className="space-y-8">
-            <Accordion type="multiple" className="w-full space-y-4">
-                {allCarts.map((cart) => (
-                    <AccordionItem value={cart.id} key={cart.id} className="border rounded-lg shadow-md bg-card">
-                        <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                             <div className="flex items-center gap-3">
-                                {cart.type === 'personal' ? <User className="w-6 h-6 text-primary"/> : <Users className="w-6 h-6 text-primary"/>}
-                                <div>
-                                    <h2 className="font-headline text-xl text-left">{cart.name}</h2>
-                                    <p className="text-sm text-muted-foreground text-left">
-                                        {cart.items.reduce((acc: number, i: CartItem) => acc + i.quantity, 0)} items &bull; Type: <span className="capitalize font-medium text-primary">{cart.type}</span>
-                                    </p>
-                                </div>
-                             </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-6 pb-4">
-                           <div className="space-y-4 pt-4 border-t">
-                             {cart.items.map(item => (
-                               <div key={item.id} className="flex items-center justify-between gap-4">
-                                 <div className="flex items-center gap-4">
-                                   <Image src={item.image} alt={item.name} width={64} height={64} className="rounded-md border" data-ai-hint={item.hint}/>
-                                   <div>
-                                     <p className="font-semibold">{item.name}</p>
-                                     <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+        <div className="grid md:grid-cols-3 gap-8">
+            <div className="md:col-span-2">
+                <Card className="shadow-md">
+                    <CardHeader>
+                        <CardTitle>Your Cart Contents</CardTitle>
+                        <CardDescription>Select a cart from the dropdown to see its contents.</CardDescription>
+                         <Select value={selectedCartId ?? ''} onValueChange={setSelectedCartId}>
+                            <SelectTrigger className="w-full md:w-[280px] mt-2">
+                                <SelectValue placeholder="Select a cart..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {allCarts.map((cart) => (
+                                    <SelectItem key={cart.id} value={cart.id}>
+                                        <div className="flex items-center gap-2">
+                                            {cart.type === 'personal' ? <User className="w-4 h-4"/> : <Users className="w-4 h-4"/>}
+                                            <span>{cart.name} ({cart.items.reduce((acc, i: CartItem) => acc + i.quantity, 0)} items)</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </CardHeader>
+                    <CardContent>
+                        <Separator className="mb-6" />
+                        {selectedCart && selectedCart.items.length > 0 ? (
+                            <div className="space-y-4">
+                                {selectedCart.items.map(item => (
+                                   <div key={item.id} className="flex items-center justify-between gap-4">
+                                     <div className="flex items-center gap-4">
+                                       <Image src={item.image} alt={item.name} width={64} height={64} className="rounded-md border" data-ai-hint={item.hint}/>
+                                       <div>
+                                         <p className="font-semibold">{item.name}</p>
+                                         <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+                                       </div>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(item.id, item.quantity - 1)} disabled={isUpdating === item.id}>
+                                            <Minus className="h-4 w-4" />
+                                        </Button>
+                                        <span className="font-bold w-4 text-center">{item.quantity}</span>
+                                        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(item.id, item.quantity + 1)} disabled={isUpdating === item.id}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => handleQuantityChange(item.id, 0)} disabled={isUpdating === item.id}>
+                                            {isUpdating === item.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
+                                        </Button>
+                                     </div>
                                    </div>
-                                 </div>
-                                 <div className="flex items-center gap-2">
-                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, item.quantity - 1)} disabled={isUpdating === `${cart.id}-${item.id}`}>
-                                        <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <span className="font-bold w-4 text-center">{item.quantity}</span>
-                                    <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, item.quantity + 1)} disabled={isUpdating === `${cart.id}-${item.id}`}>
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => handleQuantityChange(cart.id, cart.type, item.id, 0)} disabled={isUpdating === `${cart.id}-${item.id}`}>
-                                        {isUpdating === `${cart.id}-${item.id}` ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4"/>}
-                                    </Button>
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                           <Button asChild className="mt-6 w-full sm:w-auto float-right">
-                               <Link href={`/checkout?cartId=${cart.id}&type=${cart.type}`}>
-                                <ShoppingCart className="w-4 h-4 mr-1"/> Proceed to Checkout
-                               </Link>
-                           </Button>
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
-            
-            {totalItemsInAllCarts > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Wand2 className="w-5 h-5 text-primary" />
-                    AI Recommendations
-                  </CardTitle>
-                  <CardDescription>
-                    Discover products you might also like based on what's in your carts.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loadingRecs ? (
-                     <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Finding recommendations...</span>
-                     </div>
-                  ) : recommendations ? (
-                    <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground italic">{recommendations.reason}</p>
-                        <ul className="list-disc list-inside font-semibold">
-                            {recommendations.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
-                        </ul>
-                    </div>
-                  ) : (
-                     <Button onClick={handleGetRecommendations} disabled={loadingRecs}>
-                        Get AI Recommendations
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
+                                ))}
+                                <Separator className="my-6" />
+                                <Button asChild className="w-full sm:w-auto float-right">
+                                   <Link href={`/checkout?cartId=${selectedCart.id}&type=${selectedCart.type}`}>
+                                    <ShoppingCart className="w-4 h-4 mr-1"/> Proceed to Checkout
+                                   </Link>
+                               </Button>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                                <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
+                                <p className="mt-4">This cart is empty.</p>
+                                <Button asChild variant="link" className="mt-2">
+                                    <Link href="/product">Start Shopping</Link>
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+            <div className="md:col-span-1 space-y-8">
+                 {totalItemsInAllCarts > 0 && (
+                  <Card className="shadow-md">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Wand2 className="w-5 h-5 text-primary" />
+                        AI Recommendations
+                      </CardTitle>
+                      <CardDescription>
+                        Based on all items in your carts.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {loadingRecs ? (
+                         <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Finding recommendations...</span>
+                         </div>
+                      ) : recommendations ? (
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground italic">{recommendations.reason}</p>
+                            <ul className="list-disc list-inside font-semibold">
+                                {recommendations.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
+                            </ul>
+                        </div>
+                      ) : (
+                         <Button onClick={handleGetRecommendations} disabled={loadingRecs}>
+                            Get AI Suggestions
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+            </div>
         </div>
       ) : (
-        <div className="text-center py-16">
-          <p className="text-muted-foreground text-xl">
-            All your carts are currently empty.
+        <div className="text-center py-16 border-2 border-dashed rounded-lg">
+           <ShoppingCart className="mx-auto h-12 w-12 text-gray-400" />
+          <p className="mt-4 text-muted-foreground text-xl font-semibold">
+            You don't have any carts yet.
           </p>
-          <p className="text-muted-foreground mt-2">
-            Add some products or <Link href="/carts/create-cart-dialog" className="underline text-primary">create a new cart</Link> to get started.
-          </p>
+           <p className="mt-1 text-muted-foreground">Start shopping to create your first one!</p>
           <Button asChild className="mt-4">
-            <Link href="/product">Start Shopping</Link>
+            <Link href="/product">Browse Products</Link>
           </Button>
         </div>
       )}
