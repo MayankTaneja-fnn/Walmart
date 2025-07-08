@@ -5,14 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Leaf, Package, Recycle, ShoppingBag, Loader2 } from "lucide-react";
+import { Leaf, Package, Recycle, ShoppingBag, Loader2, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/context/auth-context";
-import { getPersonalCart, getGroupCart } from "../cart/actions";
+import { getPersonalCart, getGroupCart, updateItemQuantity } from "../cart/actions";
 import type { AnyCart, CartItem } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 const ecoOptions = [
     { id: 'return-packaging', label: 'Return packaging to delivery agent', points: 15, icon: <Recycle className="w-5 h-5 text-primary" /> },
@@ -26,6 +27,8 @@ function CheckoutCore() {
     const searchParams = useSearchParams();
     const [cart, setCart] = useState<AnyCart | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isUpdating, setIsUpdating] = useState<string | null>(null);
+    const { toast } = useToast();
 
     useEffect(() => {
         const cartId = searchParams.get('cartId');
@@ -46,6 +49,34 @@ function CheckoutCore() {
             setLoading(false);
         }
     }, [user, searchParams, authLoading]);
+
+    const handleRemoveItem = async (itemId: string) => {
+        if (!cart || !user) return;
+        setIsUpdating(itemId);
+
+        const cartIdentifier = cart.type === 'personal' ? user.uid : cart.id;
+        
+        const result = await updateItemQuantity(cartIdentifier, cart.type as 'personal' | 'group', itemId, 0, user.uid);
+
+        if (result.success) {
+            setCart(prevCart => {
+                if (!prevCart) return null;
+                const updatedItems = prevCart.items.filter(item => item.id !== itemId);
+                return { ...prevCart, items: updatedItems };
+            });
+            toast({
+                title: 'Item removed',
+                description: 'The item has been removed from your cart.',
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: result.message,
+            });
+        }
+        setIsUpdating(null);
+    };
 
     const cartType = searchParams.get('type');
     const cartItems = cart?.items || [];
@@ -118,7 +149,19 @@ function CheckoutCore() {
                                                         <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
                                                     </div>
                                                 </div>
-                                                <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                                                    <Button 
+                                                        size="icon" 
+                                                        variant="ghost" 
+                                                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                        onClick={() => handleRemoveItem(item.id)}
+                                                        disabled={!!isUpdating}
+                                                        aria-label="Remove item"
+                                                    >
+                                                        {isUpdating === item.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

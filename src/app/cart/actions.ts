@@ -283,3 +283,44 @@ export async function getGroupCartsForUser(userId: string): Promise<GroupCart[]>
     return [];
   }
 }
+
+
+export async function updateItemQuantity(cartId: string, cartType: 'personal' | 'group', itemId: string, quantity: number, userId: string): Promise<{ success: boolean; message: string }> {
+    if (!userId) return { success: false, message: 'You must be logged in.' };
+
+    const collectionName = cartType === 'personal' ? 'carts' : 'groupCarts';
+    const cartRef = doc(db, collectionName, cartId);
+
+    try {
+        const cartSnap = await getDoc(cartRef);
+        if (!cartSnap.exists()) return { success: false, message: 'Cart not found.' };
+
+        const cartData = cartSnap.data();
+        const items = (cartData.items || []) as CartItem[];
+        
+        const itemIndex = items.findIndex(item => item.id === itemId);
+
+        if (itemIndex === -1) {
+            return { success: false, message: 'Item not in cart.' };
+        }
+        
+        const newItems = [...items];
+
+        if (quantity <= 0) {
+            // Remove item if quantity is 0 or less
+            newItems.splice(itemIndex, 1);
+        } else {
+            // Update quantity
+            newItems[itemIndex].quantity = quantity;
+        }
+
+        await updateDoc(cartRef, { items: newItems });
+
+        revalidatePath('/checkout');
+        return { success: true, message: 'Cart updated.' };
+
+    } catch (error) {
+        console.error("Error updating item quantity:", error);
+        return { success: false, message: 'Could not update cart.' };
+    }
+}
