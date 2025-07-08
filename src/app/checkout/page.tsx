@@ -96,7 +96,8 @@ function CheckoutCore() {
         if (!selectedCart || !user) return;
         setIsUpdating(itemId);
         
-        const result = await updateItemQuantity(selectedCart.id, selectedCart.type, itemId, 0, user.uid);
+        const cartTypeForAction = selectedCart.type === 'personal' ? 'personal' : 'group';
+        const result = await updateItemQuantity(selectedCart.id, cartTypeForAction, itemId, 0, user.uid);
 
         if (result.success) {
             setAllCarts(prevCarts => {
