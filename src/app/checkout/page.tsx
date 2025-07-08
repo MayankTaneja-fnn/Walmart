@@ -5,11 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Leaf, Package, Recycle, ShoppingBag, Loader2, Trash2, User, Users } from "lucide-react";
+import { Leaf, Package, Recycle, ShoppingBag, Loader2, Trash2, User, Users, Wand2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useTransition } from "react";
 import { useAuth } from "@/context/auth-context";
-import { getPersonalCart, getGroupCart, updateItemQuantity, getGroupCartsForUser } from "../cart/actions";
+import { getPersonalCart, getGroupCartsForUser, updateItemQuantity } from "../cart/actions";
 import type { AnyCart, CartItem } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getCartRecommendations } from "@/ai/flows/cart-recommendations";
 
 const ecoOptions = [
     { id: 'return-packaging', label: 'Return packaging to delivery agent', points: 15, icon: <Recycle className="w-5 h-5 text-primary" /> },
@@ -38,6 +39,8 @@ function CheckoutCore() {
     const [selectedCartId, setSelectedCartId] = useState<string | null>(null);
     const [loadingCarts, setLoadingCarts] = useState(true);
     const [isUpdating, setIsUpdating] = useState<string | null>(null);
+    const [recommendations, setRecommendations] = useState<{ recommendations: string[], reason: string } | null>(null);
+    const [loadingRecs, startRecsTransition] = useTransition();
 
     useEffect(() => {
         if (user) {
@@ -69,6 +72,23 @@ function CheckoutCore() {
             setLoadingCarts(false);
         }
     }, [user, authLoading, searchParams]);
+    
+    const handleGetRecommendations = () => {
+        const cartItems = selectedCart?.items.map(item => ({ name: item.name })) || [];
+        if (cartItems.length === 0) {
+          toast({ variant: "destructive", title: "Your cart is empty", description: "Add items to get recommendations." });
+          return;
+        }
+        
+        startRecsTransition(async () => {
+          const result = await getCartRecommendations({ items: cartItems });
+          if (result) {
+            setRecommendations(result);
+          } else {
+            toast({ variant: "destructive", title: "Could not get recommendations." });
+          }
+        });
+    };
 
     const selectedCart = allCarts.find(cart => cart.id === selectedCartId);
 
@@ -136,8 +156,8 @@ function CheckoutCore() {
     return (
         <div className="container mx-auto py-12 px-4">
             <h1 className="font-headline text-4xl font-bold mb-8 text-center">Checkout</h1>
-            <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
+            <div className="grid lg:grid-cols-3 gap-8 items-start">
+                <div className="lg:col-span-2 space-y-8">
                     <Card className="shadow-lg">
                         <CardHeader>
                             <CardTitle>Eco-Friendly Options</CardTitle>
@@ -158,6 +178,39 @@ function CheckoutCore() {
                             ))}
                         </CardContent>
                     </Card>
+                    
+                    {selectedCart && selectedCart.items.length > 0 && (
+                        <Card className="shadow-md">
+                            <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Wand2 className="w-5 h-5 text-primary" />
+                                AI Recommendations
+                            </CardTitle>
+                            <CardDescription>
+                                Based on items in your selected cart.
+                            </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                            {loadingRecs ? (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>Finding recommendations...</span>
+                                </div>
+                            ) : recommendations ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm text-muted-foreground italic">{recommendations.reason}</p>
+                                    <ul className="list-disc list-inside font-semibold">
+                                        {recommendations.recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
+                                    </ul>
+                                </div>
+                            ) : (
+                                <Button onClick={handleGetRecommendations} disabled={loadingRecs}>
+                                    Get AI Suggestions
+                                </Button>
+                            )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
                 <div className="lg:col-span-1">
                     <Card className="shadow-lg sticky top-24">
@@ -241,7 +294,7 @@ function CheckoutCore() {
                                 </>
                             ) : (
                                 <div className="text-center py-8">
-                                    <p className="text-muted-foreground">Select a cart with items to check out.</p>
+                                    <p className="text-muted-foreground">Your selected cart is empty or you have no carts with items.</p>
                                     <Button asChild variant="link" className="mt-2">
                                         <Link href="/product">Start Shopping</Link>
                                     </Button>
