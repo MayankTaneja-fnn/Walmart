@@ -25,7 +25,7 @@ export default async function ProductsPage() {
             No products found.
           </p>
            <p className="text-muted-foreground mt-2">
-            Please check back later or make sure the `items` collection is populated in Firestore.
+            Please check back later or make sure the `products` collection is populated in Firestore.
           </p>
         </div>
       )}

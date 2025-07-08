@@ -75,8 +75,8 @@ const mockProducts: Product[] = [
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const itemsCollection = collection(db, 'items');
-    const snapshot = await getDocs(itemsCollection);
+    const productsCollection = collection(db, 'products');
+    const snapshot = await getDocs(productsCollection);
     if (snapshot.empty) {
       console.log('No products found in the database. Using mock data.');
       return mockProducts;
@@ -95,7 +95,7 @@ export async function getProducts(): Promise<Product[]> {
 export async function getProductById(productId: string): Promise<Product | null> {
     if (!productId) return null;
     try {
-        const productRef = doc(db, 'items', productId);
+        const productRef = doc(db, 'products', productId);
         const productSnap = await getDoc(productRef);
         if (productSnap.exists()) {
             return { id: productSnap.id, ...productSnap.data() } as Product;
