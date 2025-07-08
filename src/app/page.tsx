@@ -56,7 +56,7 @@ async function Home() {
         <div className="container mx-auto px-4 pt-8 pb-12">
           <div className="relative rounded-lg overflow-hidden">
             <Image
-              src="https://placehold.co/1200x400.png"
+              src="https://images.unsplash.com/photo-1580913428023-02c695666d61"
               alt="Eco-friendly products banner"
               width={1200}
               height={400}
