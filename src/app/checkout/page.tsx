@@ -5,15 +5,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Leaf, Package, Recycle, ShoppingBag, Loader2, Trash2 } from "lucide-react";
+import { Leaf, Package, Recycle, ShoppingBag, Loader2, Trash2, User, Users } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/context/auth-context";
-import { getPersonalCart, getGroupCart, updateItemQuantity } from "../cart/actions";
+import { getPersonalCart, getGroupCart, updateItemQuantity, getGroupCartsForUser } from "../cart/actions";
 import type { AnyCart, CartItem } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ecoOptions = [
     { id: 'return-packaging', label: 'Return packaging to delivery agent', points: 15, icon: <Recycle className="w-5 h-5 text-primary" /> },
@@ -25,44 +32,67 @@ const ecoOptions = [
 function CheckoutCore() {
     const { user, loading: authLoading } = useAuth();
     const searchParams = useSearchParams();
-    const [cart, setCart] = useState<AnyCart | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [isUpdating, setIsUpdating] = useState<string | null>(null);
     const { toast } = useToast();
 
+    const [allCarts, setAllCarts] = useState<AnyCart[]>([]);
+    const [selectedCartId, setSelectedCartId] = useState<string | null>(null);
+    const [loadingCarts, setLoadingCarts] = useState(true);
+    const [isUpdating, setIsUpdating] = useState<string | null>(null);
+
     useEffect(() => {
-        const cartId = searchParams.get('cartId');
-        const cartType = searchParams.get('type');
-
         if (user) {
-            setLoading(true);
-            let cartPromise;
-            if (cartId && cartType && cartType !== 'personal') {
-                cartPromise = getGroupCart(cartId);
-            } else {
-                cartPromise = getPersonalCart(user.uid);
-            }
-            
-            cartPromise.then(setCart).finally(() => setLoading(false));
+            setLoadingCarts(true);
+            Promise.all([
+                getPersonalCart(user.uid),
+                getGroupCartsForUser(user.uid)
+            ]).then(([personalCart, groupCarts]) => {
+                const cartsToShow: AnyCart[] = [];
+                // only add carts with items
+                if (personalCart && personalCart.items.length > 0) {
+                    cartsToShow.push(personalCart);
+                }
+                cartsToShow.push(...groupCarts.filter(c => c.items.length > 0));
 
+                setAllCarts(cartsToShow);
+
+                const initialCartId = searchParams.get('cartId');
+                if (initialCartId && cartsToShow.some(c => c.id === initialCartId)) {
+                    setSelectedCartId(initialCartId);
+                } else if (cartsToShow.length > 0) {
+                    setSelectedCartId(cartsToShow[0].id);
+                } else {
+                    setSelectedCartId(null);
+                }
+                
+            }).finally(() => setLoadingCarts(false));
         } else if (!authLoading) {
-            setLoading(false);
+            setLoadingCarts(false);
         }
-    }, [user, searchParams, authLoading]);
+    }, [user, authLoading, searchParams]);
+
+    const selectedCart = allCarts.find(cart => cart.id === selectedCartId);
 
     const handleRemoveItem = async (itemId: string) => {
-        if (!cart || !user) return;
+        if (!selectedCart || !user) return;
         setIsUpdating(itemId);
-
-        const cartIdentifier = cart.type === 'personal' ? user.uid : cart.id;
         
-        const result = await updateItemQuantity(cartIdentifier, cart.type as 'personal' | 'group', itemId, 0, user.uid);
+        const result = await updateItemQuantity(selectedCart.id, selectedCart.type, itemId, 0, user.uid);
 
         if (result.success) {
-            setCart(prevCart => {
-                if (!prevCart) return null;
-                const updatedItems = prevCart.items.filter(item => item.id !== itemId);
-                return { ...prevCart, items: updatedItems };
+            setAllCarts(prevCarts => {
+                const updatedCarts = prevCarts.map(cart => {
+                    if (cart.id === selectedCart.id) {
+                        const updatedItems = cart.items.filter(item => item.id !== itemId);
+                        return { ...cart, items: updatedItems };
+                    }
+                    return cart;
+                }).filter(c => c.items.length > 0);
+
+                if (!updatedCarts.find(c => c.id === selectedCartId)) {
+                    setSelectedCartId(updatedCarts.length > 0 ? updatedCarts[0].id : null);
+                }
+
+                return updatedCarts;
             });
             toast({
                 title: 'Item removed',
@@ -78,16 +108,15 @@ function CheckoutCore() {
         setIsUpdating(null);
     };
 
-    const cartType = searchParams.get('type');
-    const cartItems = cart?.items || [];
+    const cartItems = selectedCart?.items || [];
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     
     let discount = 0;
     let discountPercentText = '';
-    if (cartType === 'family') {
+    if (selectedCart?.type === 'family') {
         discount = subtotal * 0.02; // 2% discount
         discountPercentText = 'Family Cart Discount (2%)';
-    } else if (cartType === 'community') {
+    } else if (selectedCart?.type === 'community') {
         discount = subtotal * 0.05; // 5% discount
         discountPercentText = 'Community Cart Discount (5%)';
     }
@@ -96,7 +125,7 @@ function CheckoutCore() {
     const tax = discountedSubtotal * 0.08;
     const total = discountedSubtotal + tax;
 
-    if (loading || authLoading) {
+    if (loadingCarts || authLoading) {
         return (
             <div className="flex justify-center items-center min-h-[calc(100vh-10rem)]">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -134,10 +163,29 @@ function CheckoutCore() {
                     <Card className="shadow-lg sticky top-24">
                         <CardHeader>
                             <CardTitle>Order Summary</CardTitle>
-                             <CardDescription>From: {cart?.name || 'Your Cart'}</CardDescription>
+                             <CardDescription>
+                                {allCarts.length > 0 ? "Select a cart to checkout from." : "You have no items to check out."}
+                             </CardDescription>
+                             {allCarts.length > 0 && (
+                                <Select value={selectedCartId ?? ''} onValueChange={setSelectedCartId}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select a cart..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {allCarts.map((cart) => (
+                                            <SelectItem key={cart.id} value={cart.id}>
+                                                <div className="flex items-center gap-2">
+                                                    {cart.type === 'personal' ? <User className="w-4 h-4"/> : <Users className="w-4 h-4"/>}
+                                                    <span>{cart.name} ({cart.items.reduce((acc, i: CartItem) => acc + i.quantity, 0)} items)</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                             )}
                         </CardHeader>
                         <CardContent>
-                             {cartItems.length > 0 ? (
+                             {selectedCart && cartItems.length > 0 ? (
                                 <>
                                     <div className="space-y-4">
                                         {cartItems.map(item => (
@@ -193,7 +241,7 @@ function CheckoutCore() {
                                 </>
                             ) : (
                                 <div className="text-center py-8">
-                                    <p className="text-muted-foreground">Your cart is empty.</p>
+                                    <p className="text-muted-foreground">Select a cart with items to check out.</p>
                                     <Button asChild variant="link" className="mt-2">
                                         <Link href="/product">Start Shopping</Link>
                                     </Button>
