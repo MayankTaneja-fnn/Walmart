@@ -20,22 +20,17 @@ import {
 import type { Cart, CartItem, Product, GroupCart } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { getProductById } from '../product/actions';
 
-const sampleProduct: Product = {
-  id: 'prod_1',
-  name: 'Fresh Organic Apples',
-  price: 3.99,
-  image: 'https://placehold.co/100x100.png',
-  hint: 'organic apples'
-};
 
 export async function addToCart(productId: string, userId: string): Promise<{ success: boolean; message: string }> {
   if (!userId) return { success: false, message: 'You must be logged in to add items to your cart.' };
-  if (productId !== 'prod_1') return { success: false, message: 'This product cannot be added to the cart.' };
+  
+  const productToAdd = await getProductById(productId);
+  if (!productToAdd) return { success: false, message: 'Product not found.' };
 
   const cartRef = doc(db, 'carts', userId);
   const cartSnap = await getDoc(cartRef);
-  const productToAdd = sampleProduct;
 
   try {
     if (cartSnap.exists()) {
@@ -67,7 +62,9 @@ export async function addToCart(productId: string, userId: string): Promise<{ su
 
 export async function addToGroupCart(productId: string, cartId: string, userId: string): Promise<{ success: boolean; message: string }> {
   if (!userId) return { success: false, message: 'You must be logged in to add items to a cart.' };
-  if (productId !== 'prod_1') return { success: false, message: 'This product cannot be added to the cart.' };
+  
+  const productToAdd = await getProductById(productId);
+  if (!productToAdd) return { success: false, message: 'Product not found.' };
 
   const cartRef = doc(db, 'groupCarts', cartId);
   const cartSnap = await getDoc(cartRef);
@@ -84,7 +81,7 @@ export async function addToGroupCart(productId: string, cartId: string, userId: 
       newItems[itemIndex].quantity += 1;
       await updateDoc(cartRef, { items: newItems });
     } else {
-      const newItem: CartItem = { ...sampleProduct, quantity: 1 };
+      const newItem: CartItem = { ...productToAdd, quantity: 1 };
       await updateDoc(cartRef, { items: arrayUnion(newItem) });
     }
     revalidatePath('/checkout');

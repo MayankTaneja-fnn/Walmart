@@ -3,22 +3,27 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Gift, Package, ThumbsUp, Users } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getProducts } from './product/actions';
+import type { Product } from '@/lib/types';
 
-const categories = [
-  { name: 'Groceries', href: '/product', image: 'https://placehold.co/300x300.png', hint: 'groceries shelf' },
-  { name: 'Household', href: '/product', image: 'https://placehold.co/300x300.png', hint: 'cleaning supplies' },
-  { name: 'Electronics', href: '/product', image: 'https://placehold.co/300x300.png', hint: 'modern electronics' },
-  { name: 'Apparel', href: '/product', image: 'https://placehold.co/300x300.png', hint: 'clothing rack' },
-];
+async function Home() {
+  const allProducts = await getProducts();
+  const featuredProducts = allProducts.slice(0, 4);
 
-const featuredProducts = [
-  { name: 'Organic Bananas', price: '$1.29', image: 'https://placehold.co/300x300.png', hint: 'organic bananas' },
-  { name: 'Recycled Paper Towels', price: '$5.99', image: 'https://placehold.co/300x300.png', hint: 'paper towels' },
-  { name: 'Fair-Trade Coffee', price: '$12.49', image: 'https://placehold.co/300x300.png', hint: 'coffee beans' },
-  { name: 'Bamboo Toothbrush Set', price: '$8.99', image: 'https://placehold.co/300x300.png', hint: 'bamboo toothbrush' },
-];
+  const categories = allProducts.reduce((acc, product) => {
+    if (product.category && !acc.find(c => c.name === product.category)) {
+      acc.push({
+        name: product.category,
+        href: '/product',
+        image: product.image, // Use the image of the first product in that category
+        hint: product.hint
+      });
+    }
+    return acc;
+  }, [] as { name: string; href: string; image: string; hint: string }[]).slice(0, 4);
 
-const ecoFeatures = [
+
+  const ecoFeatures = [
     {
       icon: <Users className="w-8 h-8 text-primary" />,
       title: "Community Carts",
@@ -43,9 +48,8 @@ const ecoFeatures = [
       description: "Shop from a curated selection of brands committed to the planet.",
       href: "/product"
     }
-]
+  ]
 
-export default function Home() {
   return (
     <div className="flex flex-col items-center bg-muted/20">
       <section className="w-full">
@@ -57,7 +61,7 @@ export default function Home() {
               width={1200}
               height={400}
               className="w-full h-auto object-cover"
-              data-ai-hint="sustainable products nature"
+              data-ai-hint="walmart store interior"
             />
             <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center text-center p-4">
                 <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight font-headline">
@@ -78,7 +82,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-8 font-headline">Shop by Department</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-            {categories.map((category) => (
+            {categories.length > 0 ? categories.map((category) => (
               <Link href={category.href} key={category.name}>
                 <div className="group text-center">
                     <div className="rounded-full overflow-hidden w-32 h-32 md:w-48 md:h-48 mx-auto border-2 border-transparent group-hover:border-primary transition-all">
@@ -94,7 +98,7 @@ export default function Home() {
                     <p className="mt-4 font-semibold text-lg">{category.name}</p>
                 </div>
               </Link>
-            ))}
+            )) : <p className="text-center text-muted-foreground col-span-full">No product categories found.</p>}
           </div>
         </div>
       </section>
@@ -102,29 +106,34 @@ export default function Home() {
       <section className="w-full py-12">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-8 font-headline">Featured Eco-Friendly Products</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <Card key={product.name} className="overflow-hidden group">
-                <CardContent className="p-0">
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    width={300}
-                    height={300}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
-                    data-ai-hint={product.hint}
-                  />
-                </CardContent>
-                <div className="p-4">
-                    <h3 className="font-semibold truncate">{product.name}</h3>
-                    <div className="flex justify-between items-center mt-2">
-                        <p className="text-lg font-bold text-primary">{product.price}</p>
-                        <Button size="sm" variant="secondary">Add</Button>
+           {featuredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => (
+                <Card key={product.id} className="overflow-hidden group">
+                  <Link href="/product">
+                    <CardContent className="p-0">
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        width={300}
+                        height={300}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform"
+                        data-ai-hint={product.hint}
+                      />
+                    </CardContent>
+                    <div className="p-4">
+                        <h3 className="font-semibold truncate">{product.name}</h3>
+                        <div className="flex justify-between items-center mt-2">
+                            <p className="text-lg font-bold text-primary">${product.price.toFixed(2)}</p>
+                        </div>
                     </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                  </Link>
+                </Card>
+              ))}
+            </div>
+             ) : (
+                <p className="text-center text-muted-foreground">No featured products available. Please check back later.</p>
+            )}
            <div className="text-center mt-12">
                 <Button asChild size="lg" variant="outline">
                     <Link href="/product">Shop All Products</Link>
@@ -159,3 +168,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default Home;
