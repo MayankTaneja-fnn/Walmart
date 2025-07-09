@@ -10,13 +10,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Image from 'next/image';
-import { ChevronDown, Leaf, Users, ShoppingCart, Loader2, User } from 'lucide-react';
+import { ChevronDown, Leaf, Users, ShoppingCart, Loader2, User, Info } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { addToCart, addToGroupCart, getGroupCartsForUser } from '@/app/cart/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { GroupCart, Product } from '@/lib/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function ProductCard({ product }: { product: Product }) {
   const { user } = useAuth();
@@ -82,6 +88,36 @@ export function ProductCard({ product }: { product: Product }) {
           className="object-cover group-hover:scale-105 transition-transform"
           data-ai-hint={product.hint}
         />
+        <div className="absolute top-2 right-2">
+            <TooltipProvider>
+                <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-black/30 text-white hover:bg-black/50 hover:text-white">
+                            <Info className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="w-64 p-4">
+                        <div className="space-y-3">
+                             <h4 className="font-semibold">Sustainability Details</h4>
+                             <ul className="text-xs text-muted-foreground space-y-1">
+                                 <li><span className="font-medium text-foreground">Carbon Footprint:</span> 2.5 kg CO2e</li>
+                                 <li><span className="font-medium text-foreground">Water Usage:</span> 50L</li>
+                                 <li><span className="font-medium text-foreground">Source:</span> Ethically Sourced</li>
+                             </ul>
+                             <div className="flex flex-col items-center pt-2">
+                                 <Image 
+                                     src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=https://example.com/products/${product.id}`}
+                                     width={80}
+                                     height={80}
+                                     alt="QR Code for more info"
+                                 />
+                                <p className="text-xs text-muted-foreground mt-2">Scan for more details</p>
+                             </div>
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        </div>
       </div>
       <CardContent className="p-4 flex flex-col flex-grow">
         <h3 className="font-semibold truncate flex-grow">{product.name}</h3>
